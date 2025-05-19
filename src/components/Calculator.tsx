@@ -16,6 +16,8 @@ interface CalculatorState {
   angleUnit: 'DEG' | 'RAD';
 }
 
+const MAX_DIGITS = 16;
+
 export default function Calculator() {
   const [state, setState] = useState<CalculatorState>({
     display: '0',
@@ -37,8 +39,6 @@ export default function Calculator() {
     return num.replace(/,/g, '');
   }, []);
 
-  const MAX_DIGITS = 16;
-
   const getEmotion = useCallback((result: number): Emotion => {
     if (result > 1000) return 'excited';
     if (result > 100) return 'happy';
@@ -46,14 +46,14 @@ export default function Calculator() {
     return 'neutral';
   }, []);
 
-  const getEmotionEmoji = (emotion: Emotion): string => {
+  const getEmotionEmoji = useCallback((emotion: Emotion): string => {
     switch (emotion) {
       case 'happy': return '😊';
       case 'excited': return '🎉';
       case 'sad': return '😢';
       default: return '😐';
     }
-  };
+  }, []);
 
   const handleNumber = useCallback((num: string) => {
     setState(prev => {
@@ -141,17 +141,11 @@ export default function Calculator() {
     }));
   }, []);
 
-  const factorial = (n: number): number => {
-    if (n < 0) return NaN;
-    if (n <= 1) return 1;
-    return n * factorial(n - 1);
-  };
-
-  const toRadians = (degrees: number): number => {
+  const toRadians = useCallback((degrees: number): number => {
     return degrees * (Math.PI / 180);
-  };
+  }, []);
 
-  const handleScientific = (func: string) => {
+  const handleScientific = useCallback((func: string) => {
     setState(prev => {
       const currentNum = parseFloat(unformatNumber(prev.display));
       let result: number;
@@ -220,38 +214,27 @@ export default function Calculator() {
         emotion: getEmotion(result)
       };
     });
-  };
+  }, [state.angleUnit, toRadians, unformatNumber, formatNumber, getEmotion]);
 
-  const toggleMode = () => {
+  const toggleMode = useCallback(() => {
     setState(prev => ({
       ...prev,
       mode: prev.mode === 'basic' ? 'scientific' : 'basic'
     }));
-  };
+  }, []);
 
-  const toggleAngleUnit = () => {
+  const toggleAngleUnit = useCallback(() => {
     setState(prev => ({
       ...prev,
       angleUnit: prev.angleUnit === 'DEG' ? 'RAD' : 'DEG'
     }));
-  };
+  }, []);
 
-  const scientificButtons = [
-    { label: 'sin', onClick: () => handleScientific('sin'), className: 'bg-blue-600' },
-    { label: 'cos', onClick: () => handleScientific('cos'), className: 'bg-blue-600' },
-    { label: 'tan', onClick: () => handleScientific('tan'), className: 'bg-blue-600' },
-    { label: state.angleUnit, onClick: toggleAngleUnit, className: 'bg-blue-700' },
-    { label: '√', onClick: () => handleScientific('sqrt'), className: 'bg-blue-600' },
-    { label: 'x²', onClick: () => handleScientific('square'), className: 'bg-blue-600' },
-    { label: 'x³', onClick: () => handleScientific('cube'), className: 'bg-blue-600' },
-    { label: 'log', onClick: () => handleScientific('log'), className: 'bg-blue-600' },
-    { label: 'ln', onClick: () => handleScientific('ln'), className: 'bg-blue-600' },
-    { label: 'n!', onClick: () => handleScientific('!'), className: 'bg-blue-600' },
-    { label: '1/x', onClick: () => handleScientific('inv'), className: 'bg-blue-600' },
-    { label: 'eˣ', onClick: () => handleScientific('exp'), className: 'bg-blue-600' },
-    { label: 'π', onClick: () => handleScientific('pi'), className: 'bg-blue-600' },
-    { label: 'e', onClick: () => handleScientific('e'), className: 'bg-blue-600' },
-  ];
+  const factorial = useCallback((n: number): number => {
+    if (n < 0) return NaN;
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -288,7 +271,24 @@ export default function Calculator() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [calculate, handleNumber, handleOperation, handlePercent, clear]);
+  }, [handleNumber, handleOperation, calculate, handlePercent, clear, formatNumber, unformatNumber]);
+
+  const scientificButtons = [
+    { label: 'sin', onClick: () => handleScientific('sin'), className: 'bg-blue-600' },
+    { label: 'cos', onClick: () => handleScientific('cos'), className: 'bg-blue-600' },
+    { label: 'tan', onClick: () => handleScientific('tan'), className: 'bg-blue-600' },
+    { label: state.angleUnit, onClick: toggleAngleUnit, className: 'bg-blue-700' },
+    { label: '√', onClick: () => handleScientific('sqrt'), className: 'bg-blue-600' },
+    { label: 'x²', onClick: () => handleScientific('square'), className: 'bg-blue-600' },
+    { label: 'x³', onClick: () => handleScientific('cube'), className: 'bg-blue-600' },
+    { label: 'log', onClick: () => handleScientific('log'), className: 'bg-blue-600' },
+    { label: 'ln', onClick: () => handleScientific('ln'), className: 'bg-blue-600' },
+    { label: 'n!', onClick: () => handleScientific('!'), className: 'bg-blue-600' },
+    { label: '1/x', onClick: () => handleScientific('inv'), className: 'bg-blue-600' },
+    { label: 'eˣ', onClick: () => handleScientific('exp'), className: 'bg-blue-600' },
+    { label: 'π', onClick: () => handleScientific('pi'), className: 'bg-blue-600' },
+    { label: 'e', onClick: () => handleScientific('e'), className: 'bg-blue-600' },
+  ];
 
   const buttons = [
     { label: 'C', onClick: clear, className: 'bg-red-500' },
