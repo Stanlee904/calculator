@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type Emotion = 'happy' | 'neutral' | 'sad' | 'excited';
@@ -27,25 +27,24 @@ export default function Calculator() {
     angleUnit: 'DEG'
   });
 
-  const formatNumber = (num: string): string => {
-    // 소수점이 있는 경우 처리
+  const formatNumber = useCallback((num: string): string => {
     const parts = num.split('.');
     const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     return parts.length > 1 ? `${integerPart}.${parts[1]}` : integerPart;
-  };
+  }, []);
 
-  const unformatNumber = (num: string): string => {
+  const unformatNumber = useCallback((num: string): string => {
     return num.replace(/,/g, '');
-  };
+  }, []);
 
   const MAX_DIGITS = 16;
 
-  const getEmotion = (result: number): Emotion => {
+  const getEmotion = useCallback((result: number): Emotion => {
     if (result > 1000) return 'excited';
     if (result > 100) return 'happy';
     if (result < 0) return 'sad';
     return 'neutral';
-  };
+  }, []);
 
   const getEmotionEmoji = (emotion: Emotion): string => {
     switch (emotion) {
@@ -56,7 +55,7 @@ export default function Calculator() {
     }
   };
 
-  const handleNumber = (num: string) => {
+  const handleNumber = useCallback((num: string) => {
     setState(prev => {
       const currentNum = unformatNumber(prev.display);
       if (currentNum.length >= MAX_DIGITS) return prev;
@@ -68,9 +67,9 @@ export default function Calculator() {
         emotion: 'neutral'
       };
     });
-  };
+  }, [formatNumber, unformatNumber]);
 
-  const handleOperation = (op: string) => {
+  const handleOperation = useCallback((op: string) => {
     setState(prev => ({
       ...prev,
       previousValue: prev.display,
@@ -78,37 +77,61 @@ export default function Calculator() {
       display: '0',
       emotion: 'neutral'
     }));
-  };
+  }, []);
 
-  const calculate = () => {
-    const { display, previousValue, operation } = state;
-    const prev = parseFloat(unformatNumber(previousValue));
-    const current = parseFloat(unformatNumber(display));
-    let result = 0;
+  const calculate = useCallback(() => {
+    setState(prev => {
+      const display = prev.display;
+      const previousValue = prev.previousValue;
+      const operation = prev.operation;
+      const prevNum = parseFloat(unformatNumber(previousValue));
+      const currentNum = parseFloat(unformatNumber(display));
+      let result = 0;
 
-    switch (operation) {
-      case '+': result = prev + current; break;
-      case '-': result = prev - current; break;
-      case '×': result = prev * current; break;
-      case '÷': result = prev / current; break;
-      default: return;
-    }
+      switch (operation) {
+        case '+': result = prevNum + currentNum; break;
+        case '-': result = prevNum - currentNum; break;
+        case '×': result = prevNum * currentNum; break;
+        case '÷': result = prevNum / currentNum; break;
+        default: return prev;
+      }
 
-    const resultString = result.toString();
-    if (resultString.length > MAX_DIGITS) {
-      result = parseFloat(result.toExponential(8));
-    }
+      const resultString = result.toString();
+      if (resultString.length > MAX_DIGITS) {
+        result = parseFloat(result.toExponential(8));
+      }
 
-    setState(prev => ({
-      ...prev,
-      display: formatNumber(result.toString()),
-      previousValue: '',
-      operation: null,
-      emotion: getEmotion(result)
-    }));
-  };
+      return {
+        ...prev,
+        display: formatNumber(result.toString()),
+        previousValue: '',
+        operation: null,
+        emotion: getEmotion(result)
+      };
+    });
+  }, [formatNumber, unformatNumber, getEmotion]);
 
-  const clear = () => {
+  const handlePercent = useCallback(() => {
+    setState(prev => {
+      const currentNum = parseFloat(unformatNumber(prev.display));
+      if (prev.previousValue && prev.operation) {
+        const base = parseFloat(unformatNumber(prev.previousValue));
+        const percentValue = (base * currentNum) / 100;
+        return {
+          ...prev,
+          display: formatNumber(percentValue.toString()),
+        };
+      } else {
+        const percentValue = currentNum / 100;
+        return {
+          ...prev,
+          display: formatNumber(percentValue.toString()),
+        };
+      }
+    });
+  }, [formatNumber, unformatNumber]);
+
+  const clear = useCallback(() => {
     setState(prev => ({
       ...prev,
       display: '0',
@@ -116,7 +139,7 @@ export default function Calculator() {
       operation: null,
       emotion: 'neutral'
     }));
-  };
+  }, []);
 
   const factorial = (n: number): number => {
     if (n < 0) return NaN;
@@ -126,10 +149,6 @@ export default function Calculator() {
 
   const toRadians = (degrees: number): number => {
     return degrees * (Math.PI / 180);
-  };
-
-  const toDegrees = (radians: number): number => {
-    return radians * (180 / Math.PI);
   };
 
   const handleScientific = (func: string) => {
@@ -234,28 +253,6 @@ export default function Calculator() {
     { label: 'e', onClick: () => handleScientific('e'), className: 'bg-blue-600' },
   ];
 
-  const handlePercent = () => {
-    setState(prev => {
-      const currentNum = parseFloat(unformatNumber(prev.display));
-      // 연산 중이면 previousValue의 %로 계산
-      if (prev.previousValue && prev.operation) {
-        const base = parseFloat(unformatNumber(prev.previousValue));
-        const percentValue = (base * currentNum) / 100;
-        return {
-          ...prev,
-          display: formatNumber(percentValue.toString()),
-        };
-      } else {
-        // 단일 입력이면 100으로 나눔
-        const percentValue = currentNum / 100;
-        return {
-          ...prev,
-          display: formatNumber(percentValue.toString()),
-        };
-      }
-    });
-  };
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
@@ -291,7 +288,7 @@ export default function Calculator() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [calculate, handleNumber, handleOperation, handlePercent, clear]);
 
   const buttons = [
     { label: 'C', onClick: clear, className: 'bg-red-500' },
